@@ -31,7 +31,7 @@ def extract_features(word):
     
     # Handle empty strings
     if len(word) == 0:
-        return {f'feature_{i}': 0 for i in range(20)}
+        return {f'feature_{i}': 0 for i in range(22)}
     
     vowels = 'aeiouAEIOU'
     
@@ -99,6 +99,12 @@ def extract_features(word):
     # Feature 20: Has 'ph' (common in English)
     features['has_ph'] = 1 if 'ph' in word.lower() else 0
     
+    # Feature 21: starts with 'c' (common in English)
+    features['starts_c'] = 1 if word.lower().startswith('c') else 0
+
+    # Feature 22: starts with 'ch' (common in English)
+    features['starts_with_ch'] = 1 if word.lower().startswith('ch') else 0
+
     return features
 
 # ============================================
@@ -108,10 +114,13 @@ def extract_features(word):
 def load_and_prepare_data(csv_file):
     """Load data from CSV and prepare for training"""
     
-    print("Loading training data...")
+    print("Loading validated data...")
     df = pd.read_csv(csv_file)
-    
-    print(f"✅ Loaded {len(df)} words")
+
+    df['word'] = df['word'].astype(str)
+    df['word'] = df['word'].replace('nan', '')
+
+    print(f"Loaded {len(df)} words")
     print(f"\nTag distribution:")
     print(df['tag'].value_counts())
     
@@ -132,13 +141,28 @@ def load_and_prepare_data(csv_file):
         if (idx + 1) % 100 == 0:
             print(f"  Processed {idx + 1}/{len(df)} words...")
     
+    lengths = [len(f) for f in feature_list]
+    unique_lengths = set(lengths)
+    print(f"Unique feature vector lengths: {unique_lengths}")
+    if len(unique_lengths) > 1:
+        print("⚠️ Warning: inconsistent feature lengths!")
+        for i, f in enumerate(feature_list[:10]):  # print first 10 samples
+            print(f"{i}: {len(f)} -> {f}")
+
     X = np.array(feature_list)
     y = np.array(labels)
     
-    print(f"\n✅ Feature extraction complete!")
+    print(f"\nFeature extraction complete!")
     print(f"   Feature matrix shape: {X.shape}")
     print(f"   (Rows = words, Columns = features)")
     
+    # Convert features to DataFrame
+    features_df = pd.DataFrame(feature_list)
+    features_df['tag'] = y  # add label column
+
+    # Save to CSV
+    features_df.to_csv('data/training_features.csv', index=False)
+
     return X, y
 
 # ============================================
@@ -162,7 +186,7 @@ def train_models(X, y):
         X_temp, y_temp, test_size=0.50, random_state=42, stratify=y_temp
     )
     
-    print(f"\n✅ Data split complete:")
+    print(f"\nData split complete:")
     print(f"   Training:   {len(X_train)} samples ({len(X_train)/len(X)*100:.1f}%)")
     print(f"   Validation: {len(X_val)} samples ({len(X_val)/len(X)*100:.1f}%)")
     print(f"   Test:       {len(X_test)} samples ({len(X_test)/len(X)*100:.1f}%)")
@@ -188,7 +212,7 @@ def train_models(X, y):
     dt_val_pred = dt_model.predict(X_val)
     dt_val_acc = accuracy_score(y_val, dt_val_pred)
     
-    print(f"\n✅ Validation Accuracy: {dt_val_acc:.4f} ({dt_val_acc*100:.2f}%)")
+    print(f"\nValidation Accuracy: {dt_val_acc:.4f} ({dt_val_acc*100:.2f}%)")
     print("\nValidation Classification Report:")
     print(classification_report(y_val, dt_val_pred, zero_division=0))
     
@@ -212,7 +236,7 @@ def train_models(X, y):
     nb_val_pred = nb_model.predict(X_val)
     nb_val_acc = accuracy_score(y_val, nb_val_pred)
     
-    print(f"\n✅ Validation Accuracy: {nb_val_acc:.4f} ({nb_val_acc*100:.2f}%)")
+    print(f"\nValidation Accuracy: {nb_val_acc:.4f} ({nb_val_acc*100:.2f}%)")
     print("\nValidation Classification Report:")
     print(classification_report(y_val, nb_val_pred, zero_division=0))
     
@@ -234,7 +258,7 @@ def train_models(X, y):
     best_model_name = max(models, key=lambda x: models[x]['val_accuracy'])
     best_model = models[best_model_name]['model']
     
-    print(f"\n🏆 WINNER: {best_model_name}")
+    print(f"\nWINNER: {best_model_name}")
     
     # ===== FINAL TEST EVALUATION =====
     print("\n" + "="*60)
@@ -244,7 +268,7 @@ def train_models(X, y):
     test_pred = best_model.predict(X_test)
     test_acc = accuracy_score(y_test, test_pred)
     
-    print(f"\n✅ Test Accuracy: {test_acc:.4f} ({test_acc*100:.2f}%)")
+    print(f"\nTest Accuracy: {test_acc:.4f} ({test_acc*100:.2f}%)")
     print("\nTest Set Classification Report:")
     print(classification_report(y_test, test_pred, zero_division=0))
     
@@ -267,31 +291,29 @@ def save_model(model, model_name, test_accuracy):
     # Create models directory if it doesn't exist
     if not os.path.exists('models'):
         os.makedirs('models')
-        print("\n✅ Created 'models' directory")
+        print("\nCreated 'models' directory")
     
     # Save model
     model_path = 'models/pinoybot_model.pkl'
     with open(model_path, 'wb') as f:
         pickle.dump(model, f)
     
-    print(f"\n✅ Model saved to: {model_path}")
+    print(f"\nModel saved to: {model_path}")
     
     # Save model info
     info_path = 'models/model_info.txt'
     with open(info_path, 'w') as f:
-        f.write(f"PinoyBot Language Identifier\n")
-        f.write(f"="*40 + "\n\n")
-        f.write(f"Model Type: {model_name}\n")
-        f.write(f"Test Accuracy: {test_accuracy:.4f} ({test_accuracy*100:.2f}%)\n")
-        f.write(f"Number of Features: 20\n")
         f.write(f"\nFeatures Used:\n")
         f.write(f"- Word length\n")
         f.write(f"- Vowel/consonant ratios\n")
-        f.write(f"- Character n-grams (ng, th, ay, ka, qu, ph)\n")
-        f.write(f"- Filipino prefixes (nag-, mag-, etc.)\n")
+        f.write(f"- Has ng/th/ay/ka/qu/ph/ch patterns\n")
+        f.write(f"- Starts with c, ch (common in English)\n")
+        f.write(f"- Filipino prefixes (nag-, mag-, naka-, etc.)\n")
         f.write(f"- English suffixes (-ing, -ed, -tion, etc.)\n")
-        f.write(f"- Morphological patterns\n")
-        f.write(f"- Capitalization features\n")
+        f.write(f"- Morphological patterns (e.g. reduplication)\n")
+        f.write(f"- Capitalization and symbol features\n")
+        f.write(f"- Numeric and punctuation indicators\n")
+        f.write(f"- Short word indicator\n")
     
     print(f"✅ Model info saved to: {info_path}")
 
@@ -306,7 +328,7 @@ if __name__ == "__main__":
     print()
     
     # Load data
-    X, y = load_and_prepare_data('data/training_data.csv')
+    X, y = load_and_prepare_data('data/prepared_data.csv')
     
     # Train models
     best_model, model_name, test_accuracy = train_models(X, y)
@@ -315,11 +337,6 @@ if __name__ == "__main__":
     save_model(best_model, model_name, test_accuracy)
     
     print("\n" + "="*60)
-    print("✅ TRAINING COMPLETE! 🎉")
+    print("TRAINING COMPLETE!")
     print("="*60)
     print("\nYour model is ready to use!")
-    print("\nNext steps:")
-    print("1. Update pinoybot.py with the extract_features() function")
-    print("2. Test with: python pinoybot.py")
-    print("3. If accuracy is low, try adding more features")
-    print()

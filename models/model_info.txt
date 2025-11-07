@@ -1,0 +1,12 @@
+
+Features Used:
+- Word length
+- Vowel/consonant ratios
+- Has ng/th/ay/ka/qu/ph/ch patterns
+- Starts with c, ch (common in English)
+- Filipino prefixes (nag-, mag-, naka-, etc.)
+- English suffixes (-ing, -ed, -tion, etc.)
+- Morphological patterns (e.g. reduplication)
+- Capitalization and symbol features
+- Numeric and punctuation indicators
+- Short word indicator

@@ -10,7 +10,21 @@ Model training and feature extraction should be implemented in a separate script
 
 import os
 import pickle
+import numpy as np
+import pandas as pd
 from typing import List
+from train_model import extract_features
+
+# Load model once globally
+MODEL_PATH = "models/pinoybot_model.pkl"  
+model = None
+
+if os.path.exists(MODEL_PATH):
+    with open(MODEL_PATH, "rb") as f:
+        model = pickle.load(f)
+    print("Model loaded successfully!")
+else:
+    print("Model not found!")
 
 # Main tagging function
 def tag_language(tokens: List[str]) -> List[str]:
@@ -41,10 +55,29 @@ def tag_language(tokens: List[str]) -> List[str]:
     # the tag_language function is retained and correctly accomplishes the expected task.
 
     # Currently, the bot just tags every token as FIL. Replace this with your more intelligent predictions.
-    return ['FIL' for i in tokens]
+
+        # Make sure the model is loaded
+    if model is None:
+        raise ValueError("Model not loaded. Please train and save it first.")
+
+    # Extract features for each token
+    feature_list = []
+    for word in tokens:
+        features = extract_features(word)
+        feature_list.append(list(features.values()))
+
+    # Convert to numpy array
+    X = np.array(feature_list)
+
+    # Predict tags
+    predicted = model.predict(X)
+
+    # Return as list
+    return predicted.tolist()
 
 if __name__ == "__main__":
     # Example usage
-    example_tokens = ["Love", "kita", "."]
+    example_tokens = ["church", "kita", "."]
     print("Tokens:", example_tokens)
     tags = tag_language(example_tokens)
+    print("Langauge: ", tags)
